@@ -10,7 +10,7 @@ export async function onRequest(context) {
   if (path.startsWith('/')) path = path.slice(1);
   if (path.endsWith('/')) path = path.slice(0, -1);
 
-  // --- NEW: HANDLE SECURE MOBILE UPLOADS ---
+  // --- HANDLE SECURE MOBILE UPLOADS ---
   if (request.method === 'POST' && path === 'api/upload') {
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${UPLOAD_PASSWORD}`) {
@@ -20,13 +20,17 @@ export async function onRequest(context) {
     try {
       const formData = await request.formData();
       const file = formData.get('file');
+      const folderRaw = formData.get('folder');
+      
       if (!file) return new Response("No file provided", { status: 400 });
 
-      // Clean the filename to remove weird characters and force it into the BTS folder
+      // Clean folder name to remove special characters, replacing spaces with underscores
+      let targetFolder = (folderRaw || 'Uploads').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9-_]/g, '');
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const uniqueFileName = `BTS/${Date.now()}_${cleanFileName}`;
+      
+      // Add a timestamp to prevent overwriting files with the same name (like "image.jpg")
+      const uniqueFileName = `${targetFolder}/${Date.now()}_${cleanFileName}`;
 
-      // Upload directly to R2
       await env.PHOTOS_BUCKET.put(uniqueFileName, file, {
         httpMetadata: { contentType: file.type }
       });
@@ -53,11 +57,11 @@ export async function onRequest(context) {
   // 2. PAGE ROUTING LOGIC
   const isAbout = path.toLowerCase() === 'about';
   const isContact = path.toLowerCase() === 'contact';
-  const isUploadPortal = path.toLowerCase() === 'upload-portal'; // The secret page
+  const isUploadPortal = path.toLowerCase() === 'upload-portal';
   const isHome = path === '';
   const activeFolder = (isAbout || isContact || isHome || isUploadPortal) ? '' : path;
 
-  // 3. GET FOLDERS FOR SIDEBAR
+  // 3. GET FOLDERS FOR SIDEBAR & UPLOAD DROPDOWN
   const rootList = await env.PHOTOS_BUCKET.list({ delimiter: '/' });
   const folders = rootList.delimitedPrefixes.map(p => p.slice(0, -1)); 
 
@@ -76,7 +80,8 @@ export async function onRequest(context) {
     images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
   }
 
-  images.sort((a, b) => b.uploaded.getTime() - a.uploaded.getTime());
+  // UPDATED SORTING: Natural alphanumeric sort (A-Z, 1-100, Oldest to Newest)
+  images.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }));
 
   // 5. RENDER SIDEBAR LINKS
   const sidebarLinksHtml = folders.map(folder => {
@@ -85,19 +90,32 @@ export async function onRequest(context) {
     return `<a class="folder-link" href="/${encodeURIComponent(folder)}" ${isActive}>${displayName}</a>`;
   }).join('\n');
 
+  // Generate options for the upload dropdown
+  const folderOptionsHtml = folders.map(folder => {
+    const displayName = folder.replace(/_/g, ' ').replace(/-/g, ' ');
+    return `<option value="${folder}">${displayName}</option>`;
+  }).join('\n');
+
   // 6. RENDER MAIN CONTENT AREA
   let mainContentHtml = '';
 
   if (isUploadPortal) {
-    // --- THE SECRET MOBILE UPLOAD PAGE ---
     mainContentHtml = `
       <div class="static-page" style="max-width: 400px; margin: 0 auto; text-align: center; padding-top: 50px;">
-        <h2>BTS Live Upload</h2>
-        <p style="font-size: 14px; margin-bottom: 30px;">Photos uploaded here will instantly appear in the BTS folder on the homepage.</p>
+        <h2>Gallery Live Upload</h2>
+        <p style="font-size: 14px; margin-bottom: 30px;">Select an existing folder or create a new one to instantly add photos to the site.</p>
         
         <form id="mobileUploadForm" style="display: flex; flex-direction: column; gap: 20px;">
           <input type="password" id="uploadPass" placeholder="Enter Secret Password" required style="padding: 15px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;">
           
+          <select id="folderSelect" required style="padding: 15px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer;">
+            <option value="" disabled selected>Choose a Folder...</option>
+            ${folderOptionsHtml}
+            <option value="NEW_FOLDER">-- ➕ Create New Folder --</option>
+          </select>
+
+          <input type="text" id="newFolderInput" placeholder="Enter New Folder Name" style="display: none; padding: 15px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;">
+
           <label style="background: #f4f4f4; border: 2px dashed #ccc; padding: 40px 20px; cursor: pointer; border-radius: 4px; font-weight: bold;">
             Tap to Select Photos
             <input type="file" id="uploadFiles" multiple accept="image/*" required style="display: none;">
@@ -111,6 +129,19 @@ export async function onRequest(context) {
       </div>
 
       <script>
+        // Toggle new folder input field
+        document.getElementById('folderSelect').addEventListener('change', function(e) {
+          const newFolderInput = document.getElementById('newFolderInput');
+          if (e.target.value === 'NEW_FOLDER') {
+            newFolderInput.style.display = 'block';
+            newFolderInput.required = true;
+          } else {
+            newFolderInput.style.display = 'none';
+            newFolderInput.required = false;
+            newFolderInput.value = '';
+          }
+        });
+
         // Update file count display
         document.getElementById('uploadFiles').addEventListener('change', function(e) {
           const count = e.target.files.length;
@@ -122,6 +153,11 @@ export async function onRequest(context) {
           e.preventDefault();
           const pass = document.getElementById('uploadPass').value;
           const files = document.getElementById('uploadFiles').files;
+          const folderSelect = document.getElementById('folderSelect').value;
+          const newFolderInput = document.getElementById('newFolderInput').value;
+          
+          // Determine the target folder
+          const targetFolder = folderSelect === 'NEW_FOLDER' ? newFolderInput : folderSelect;
           const statusDiv = document.getElementById('uploadStatus');
           
           const submitBtn = e.target.querySelector('button');
@@ -135,6 +171,7 @@ export async function onRequest(context) {
             
             const formData = new FormData();
             formData.append('file', files[i]);
+            formData.append('folder', targetFolder);
 
             try {
               const res = await fetch('/api/upload', {
@@ -159,9 +196,9 @@ export async function onRequest(context) {
             }
           }
           
-          statusDiv.innerText = \`Successfully uploaded \${successCount} photo(s) to BTS!\`;
+          statusDiv.innerText = \`Successfully uploaded \${successCount} photo(s) to \${targetFolder}!\`;
           statusDiv.style.color = "green";
-          document.getElementById('uploadFiles').value = ""; // Clear the input
+          document.getElementById('uploadFiles').value = "";
           document.getElementById('fileCount').innerText = "No files selected";
           submitBtn.disabled = false;
           submitBtn.style.background = '#000';
