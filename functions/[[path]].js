@@ -32,7 +32,7 @@ export async function onRequest(context) {
   // 4. FETCH IMAGES
   let images = [];
   if (isHome) {
-    const homeFoldersToLoad = ['Old Work']; 
+    const homeFoldersToLoad = ['BTS']; 
     const folderPromises = homeFoldersToLoad.map(folderName => 
       env.PHOTOS_BUCKET.list({ prefix: `${folderName}/` })
     );
