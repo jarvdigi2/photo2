@@ -68,7 +68,8 @@ export async function onRequest(context) {
   // 4. FETCH IMAGES
   let images = [];
   if (isHome) {
-    const homeFoldersToLoad = ['BTS']; 
+    // HOMEPAGE FILTER UPDATED: Now only loads the 'Featured' folder
+    const homeFoldersToLoad = ['Featured']; 
     const folderPromises = homeFoldersToLoad.map(folderName => 
       env.PHOTOS_BUCKET.list({ prefix: `${folderName}/` })
     );
@@ -80,7 +81,7 @@ export async function onRequest(context) {
     images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
   }
 
-  // UPDATED SORTING: Natural alphanumeric sort (A-Z, 1-100, Oldest to Newest)
+  // Natural alphanumeric sort (A-Z, 1-100, Oldest to Newest)
   images.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }));
 
   // 5. RENDER SIDEBAR LINKS
@@ -210,7 +211,7 @@ export async function onRequest(context) {
       <div class="static-page">
         <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
         <h2>About</h2>
-        <p> </p>
+        <p>Edit this text directly inside your [[path]].js file.</p>
       </div>
     `;
   } else if (isContact) {
