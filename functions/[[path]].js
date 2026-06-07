@@ -91,6 +91,11 @@ export async function onRequest(context) {
   // 7. FINAL HTML ASSEMBLY
   const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isAbout ? 'About' : (isContact ? 'Contact' : 'Home'));
   
+  // Create absolute URLs required for Open Graph preview cards
+  const siteUrl = url.origin; 
+  const ogImageUrl = `${siteUrl}/about.jpg`;
+  const pageDescription = "Photography Portfolio of Brad Jarvis";
+  
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -99,6 +104,17 @@ export async function onRequest(context) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Brad Jarvis | ${pageTitle}</title>
       
+      <meta property="og:title" content="Brad Jarvis | ${pageTitle}">
+      <meta property="og:description" content="${pageDescription}">
+      <meta property="og:image" content="${ogImageUrl}">
+      <meta property="og:url" content="${url.href}">
+      <meta property="og:type" content="website">
+      
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="Brad Jarvis | ${pageTitle}">
+      <meta name="twitter:description" content="${pageDescription}">
+      <meta name="twitter:image" content="${ogImageUrl}">
+
       <link rel="icon" type="image/png" href="/favicon.png">
 
       <style>
@@ -188,7 +204,7 @@ export async function onRequest(context) {
         }
 
         .nav-section-title .arrow {
-          display: none; /* Hidden on desktop */
+          display: none;
         }
         
         .folder-links {
@@ -290,12 +306,12 @@ export async function onRequest(context) {
           }
           
           .folder-links { 
-            display: none; /* Hidden by default on mobile */
+            display: none;
             padding: 15px 10px; 
           }
           
           .folder-links.open { 
-            display: flex; /* Shown when toggled */
+            display: flex;
           }
         }
 
