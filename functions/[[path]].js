@@ -61,7 +61,7 @@ export async function onRequest(context) {
       <div class="static-page">
         <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
         <h2>About</h2>
-        <p>Edit this text directly inside your [[path]].js file.</p>
+        <p> </p>
       </div>
     `;
   } else if (isContact) {
@@ -147,11 +147,18 @@ export async function onRequest(context) {
           letter-spacing: 2px; 
         }
         
+        /* Nav Grouping Updates */
         aside nav { 
           margin-top: 50px; 
           display: flex; 
           flex-direction: column; 
-          gap: 15px; 
+          gap: 30px; 
+        }
+
+        .nav-group {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
         }
         
         aside nav a { 
@@ -172,12 +179,24 @@ export async function onRequest(context) {
         .nav-section-title { 
           font-size: 11px; 
           color: #999; 
-          margin-top: 20px; 
-          margin-bottom: 5px; 
+          margin-bottom: 15px; 
           text-transform: uppercase; 
           letter-spacing: 2px; 
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .nav-section-title .arrow {
+          display: none; /* Hidden on desktop */
         }
         
+        .folder-links {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+        }
+
         .folder-link { 
           text-transform: capitalize; 
           letter-spacing: 1px; 
@@ -230,23 +249,9 @@ export async function onRequest(context) {
           text-transform: uppercase; 
         }
         
-        .static-page p { 
-          margin-bottom: 15px; 
-          color: #444; 
-        }
-        
-        .static-page a { 
-          color: #000; 
-          font-weight: 500; 
-        }
-        
-        .static-image { 
-          width: 100%; 
-          max-height: 600px; 
-          object-fit: cover; 
-          margin-bottom: 40px; 
-          display: block; 
-        }
+        .static-page p { margin-bottom: 15px; color: #444; }
+        .static-page a { color: #000; font-weight: 500; }
+        .static-image { width: 100%; max-height: 600px; object-fit: cover; margin-bottom: 40px; display: block; }
 
         /* Responsive Design */
         @media (max-width: 1200px) { 
@@ -256,9 +261,42 @@ export async function onRequest(context) {
         @media (max-width: 768px) {
           body { flex-direction: column; }
           aside { position: relative; width: 100%; height: auto; padding: 30px 20px; border-bottom: 1px solid #efefef; }
-          aside nav { margin-top: 25px; flex-direction: row; flex-wrap: wrap; gap: 20px; }
           main { margin-left: 0; padding: 20px; }
           .photo-grid { column-count: 1; }
+
+          /* Mobile Nav Adjustments */
+          aside nav { margin-top: 25px; gap: 15px; }
+          .nav-group { flex-direction: row; flex-wrap: wrap; gap: 20px; }
+          
+          .gallery-group { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+          
+          .nav-section-title { 
+            cursor: pointer; 
+            padding: 15px 0; 
+            border-top: 1px solid #efefef; 
+            border-bottom: 1px solid #efefef; 
+            margin-bottom: 0; 
+            color: #000;
+          }
+          
+          .nav-section-title .arrow { 
+            display: block; 
+            font-size: 10px; 
+            transition: transform 0.3s ease; 
+          }
+          
+          .nav-section-title.open .arrow { 
+            transform: rotate(180deg); 
+          }
+          
+          .folder-links { 
+            display: none; /* Hidden by default on mobile */
+            padding: 15px 10px; 
+          }
+          
+          .folder-links.open { 
+            display: flex; /* Shown when toggled */
+          }
         }
 
         /* Lightbox */
@@ -279,12 +317,20 @@ export async function onRequest(context) {
       <aside>
         <h1><a href="/">BRAD JARVIS</a></h1>
         <nav>
-          <a href="/" ${isHome ? 'class="active"' : ''}>Home</a>
-          <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
-          <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
+          <div class="nav-group">
+            <a href="/" ${isHome ? 'class="active"' : ''}>Home</a>
+            <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
+            <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
+          </div>
           
-          <div class="nav-section-title">Gallery</div>
-          ${sidebarLinksHtml || '<span style="color:#aaa;font-size:11px;">No folders yet</span>'}
+          <div class="gallery-group">
+            <div class="nav-section-title" id="gallery-toggle" onclick="toggleGallery()">
+              Galleries <span class="arrow">▼</span>
+            </div>
+            <div class="folder-links" id="folder-links">
+              ${sidebarLinksHtml || '<span style="color:#aaa;font-size:11px;">No folders yet</span>'}
+            </div>
+          </div>
         </nav>
       </aside>
       <main>
@@ -297,6 +343,13 @@ export async function onRequest(context) {
       </div>
 
       <script>
+        function toggleGallery() {
+          if (window.innerWidth <= 768) {
+            document.getElementById('folder-links').classList.toggle('open');
+            document.getElementById('gallery-toggle').classList.toggle('open');
+          }
+        }
+
         function openLightbox(src) {
           const lightbox = document.getElementById('lightbox');
           document.getElementById('lightbox-img').src = src;
