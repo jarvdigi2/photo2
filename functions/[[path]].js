@@ -66,13 +66,9 @@ export async function onRequest(context) {
   // 4. FETCH IMAGES
   let images = [];
   if (isHome) {
-    const homeFoldersToLoad = ['Featured']; 
-    const folderPromises = homeFoldersToLoad.map(folderName => 
-      env.PHOTOS_BUCKET.list({ prefix: `${folderName}/` })
-    );
-    const folderResults = await Promise.all(folderPromises);
-    const combinedObjects = folderResults.flatMap(result => result.objects || []);
-    images = combinedObjects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+    // TEMPORARILY DISABLED: Not fetching the 'Featured' folder to save bandwidth
+    // while the 'coming soon' holding page is active. 
+    images = []; 
   } else if (activeFolder) {
     const list = await env.PHOTOS_BUCKET.list({ prefix: `${activeFolder}/` });
     images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
@@ -214,6 +210,14 @@ export async function onRequest(context) {
         <p><a href="mailto:hello@bradjarv.is">hello@bradjarv.is</a></p>
       </div>
     `;
+  } else if (isHome) {
+    // --- TEMPORARY HOLDING PAGE FOR HOME ---
+    mainContentHtml = `
+      <div class="static-page" style="margin: 0 auto; text-align: center;">
+        <img src="/home-placeholder.jpg" alt="Featured Photo" class="static-image" style="margin-bottom: 25px;" />
+        <h2 style="color: #777; letter-spacing: 4px; font-size: 16px;">MORE COMING SOON</h2>
+      </div>
+    `;
   } else {
     if (images.length === 0) {
       mainContentHtml = `<p style="color:#777; font-family: sans-serif;">No photos found here yet.</p>`;
@@ -258,17 +262,18 @@ export async function onRequest(context) {
           src: url('/US101.woff') format('woff'), url('/US101.ttf') format('truetype');
           font-weight: normal; font-style: normal; font-display: swap;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'US101', -apple-system, sans-serif; background: #fff; color: #111; display: flex; letter-spacing: 1px; }
         
-        /* Fixed Mobile Header (Hidden on Desktop) */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #111; display: flex; }
+        
         .mobile-header { display: none; }
         .mobile-overlay { display: none; }
         .close-menu-btn { display: none; }
 
-        /* Desktop Sidebar Styling */
         aside { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; padding: 50px 40px; overflow-y: auto; z-index: 1000; background: #fff; }
-        .desktop-brand { font-size: 24px; font-weight: bold; text-decoration: none; color: #000; text-transform: uppercase; letter-spacing: 2px; }
+        
+        .desktop-brand { font-family: 'US101', sans-serif; font-size: 26px; font-weight: normal; text-decoration: none; color: #000; text-transform: uppercase; letter-spacing: 0px; -webkit-font-smoothing: antialiased; }
         .desktop-brand a { color: inherit; text-decoration: none; }
         
         aside nav { margin-top: 50px; display: flex; flex-direction: column; gap: 30px; }
@@ -281,7 +286,6 @@ export async function onRequest(context) {
         .folder-links { display: flex; flex-direction: column; gap: 15px; }
         .folder-link { text-transform: capitalize; letter-spacing: 1px; }
 
-        /* Main Content */
         main { margin-left: 280px; flex-grow: 1; padding: 50px 40px; min-height: 100vh; }
         .photo-grid { column-count: 3; column-gap: 20px; }
         .grid-item { break-inside: avoid; margin-bottom: 20px; cursor: pointer; position: relative; }
@@ -289,72 +293,53 @@ export async function onRequest(context) {
         .grid-item:hover img { opacity: 0.85; }
 
         .static-page { max-width: 800px; line-height: 1.8; font-family: sans-serif; letter-spacing: normal; }
-        .static-page h2 { margin-bottom: 20px; font-weight: normal; font-family: 'US101', sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+        .static-page h2 { margin-bottom: 20px; font-weight: normal; font-family: 'US101', sans-serif; letter-spacing: 1px; text-transform: uppercase; -webkit-font-smoothing: antialiased; }
         .static-page p { margin-bottom: 15px; color: #444; }
         .static-page a { color: #000; font-weight: 500; }
         .static-image { width: 100%; max-height: 600px; object-fit: cover; margin-bottom: 40px; display: block; }
 
-        /* Responsive Design & Mobile Hamburger Nav */
         @media (max-width: 1200px) { .photo-grid { column-count: 2; } }
         
         @media (max-width: 768px) {
           body { flex-direction: column; }
           
-          /* Top Nav Bar */
           .mobile-header { 
             display: flex; align-items: center; justify-content: center;
             position: fixed; top: 0; left: 0; width: 100%; height: 60px;
             background: #fff; z-index: 900; border-bottom: 1px solid #efefef;
           }
-          .mobile-header h1 { font-size: 20px; letter-spacing: 2px; text-transform: uppercase; font-family: 'US101', sans-serif; }
+          
+          .mobile-header h1 { font-family: 'US101', sans-serif; font-size: 24px; font-weight: normal; letter-spacing: 0px; text-transform: uppercase; -webkit-font-smoothing: antialiased; }
           .mobile-header a { color: #000; text-decoration: none; }
           
-          .hamburger-btn { 
-            position: absolute; left: 15px; background: none; border: none; cursor: pointer; padding: 10px;
-          }
-          .hamburger-btn span { 
-            display: block; width: 22px; height: 2px; background: #000; margin: 5px 0; border-radius: 1px;
-          }
+          .hamburger-btn { position: absolute; left: 15px; background: none; border: none; cursor: pointer; padding: 10px; }
+          .hamburger-btn span { display: block; width: 22px; height: 2px; background: #000; margin: 5px 0; border-radius: 1px; }
 
-          /* Slide-out Drawer */
           aside { 
             position: fixed; top: 0; left: -100%; width: 280px; max-width: 80%; height: 100vh; 
             background: #fff; z-index: 1000; transition: left 0.3s ease; padding: 40px 30px;
             border-right: none; box-shadow: 2px 0 15px rgba(0,0,0,0.1);
           }
           aside.open { left: 0; }
-          .desktop-brand { display: block; margin-top: 15px; } /* Kept in menu for branding */
+          .desktop-brand { display: block; margin-top: 15px; } 
           
-          .close-menu-btn { 
-            display: block; background: none; border: none; font-size: 11px; font-weight: bold; 
-            letter-spacing: 1px; text-transform: uppercase; cursor: pointer; color: #000; margin-bottom: 20px;
-          }
+          .close-menu-btn { display: block; background: none; border: none; font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; color: #000; margin-bottom: 20px; }
           
-          /* Overlay Background */
-          .mobile-overlay { 
-            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.4); z-index: 950; opacity: 0; transition: opacity 0.3s ease;
-          }
+          .mobile-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 950; opacity: 0; transition: opacity 0.3s ease; }
           .mobile-overlay.open { display: block; opacity: 1; }
 
-          /* Mobile Main Content Push */
-          main { margin-left: 0; padding: 80px 15px 30px; } /* Offset for fixed top header */
+          main { margin-left: 0; padding: 80px 15px 30px; } 
           .photo-grid { column-count: 1; }
           
-          /* Mobile Accordion Nav Adjustments */
           aside nav { margin-top: 30px; gap: 20px; }
           .nav-group { flex-direction: column; gap: 15px; }
-          .nav-section-title { 
-            cursor: pointer; padding: 10px 0; border-top: 1px solid #efefef; border-bottom: 1px solid #efefef; 
-            margin-bottom: 0; color: #000; font-weight: 500;
-          }
+          .nav-section-title { cursor: pointer; padding: 10px 0; border-top: 1px solid #efefef; border-bottom: 1px solid #efefef; margin-bottom: 0; color: #000; font-weight: 500; }
           .nav-section-title .arrow { display: block; font-size: 10px; transition: transform 0.3s ease; }
           .nav-section-title.open .arrow { transform: rotate(180deg); }
           .folder-links { display: none; padding: 15px 0 0 5px; }
           .folder-links.open { display: flex; }
         }
 
-        /* Lightbox */
         #lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.95); justify-content: center; align-items: center; padding: 40px; opacity: 0; transition: opacity 0.3s ease; }
         #lightbox.visible { opacity: 1; }
         #lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
@@ -401,7 +386,6 @@ export async function onRequest(context) {
       </div>
       
       <script>
-        // Drawer Toggle Function
         function toggleMobileNav() {
           const sidebar = document.getElementById('main-sidebar');
           const overlay = document.getElementById('mobile-overlay');
@@ -409,7 +393,6 @@ export async function onRequest(context) {
           overlay.classList.toggle('open');
         }
 
-        // Gallery Accordion Toggle
         function toggleGalleryAccordion() {
           if (window.innerWidth <= 768) {
             document.getElementById('folder-links').classList.toggle('open');
