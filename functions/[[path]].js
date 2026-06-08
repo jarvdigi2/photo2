@@ -198,7 +198,7 @@ export async function onRequest(context) {
       <div class="static-page">
         <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
         <h2>About</h2>
-        <p> </p>
+        <p>Edit this text directly inside your [[path]].js file.</p>
       </div>
     `;
   } else if (isContact) {
@@ -271,7 +271,20 @@ export async function onRequest(context) {
         .mobile-overlay { display: none; }
         .close-menu-btn { display: none; }
 
-        aside { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; padding: 50px 40px; overflow-y: auto; z-index: 1000; background: #fff; }
+        /* Sidebar set to flex to push social icon to the bottom */
+        aside { 
+          position: fixed; left: 0; top: 0; bottom: 0; width: 280px; padding: 50px 40px; 
+          overflow-y: auto; z-index: 1000; background: #fff; 
+          display: flex; flex-direction: column; justify-content: space-between;
+        }
+        
+        .sidebar-top { flex-grow: 1; }
+        .sidebar-bottom { margin-top: 40px; }
+
+        /* Social Icon Styling */
+        .social-link { display: inline-block; color: #111; transition: opacity 0.2s ease; }
+        .social-link:hover { opacity: 0.6; }
+        .social-link svg { width: 20px; height: 20px; }
         
         .desktop-brand { font-family: 'US101', sans-serif; font-size: 26px; font-weight: normal; text-decoration: none; color: #000; text-transform: uppercase; letter-spacing: 0px; -webkit-font-smoothing: antialiased; }
         .desktop-brand a { color: inherit; text-decoration: none; }
@@ -358,24 +371,36 @@ export async function onRequest(context) {
       <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMobileNav()"></div>
 
       <aside id="main-sidebar">
-        <button class="close-menu-btn" onclick="toggleMobileNav()">&#8592; CLOSE</button>
-        <div class="desktop-brand"><a href="/">BRAD JARVIS</a></div>
+        <div class="sidebar-top">
+          <button class="close-menu-btn" onclick="toggleMobileNav()">&#8592; CLOSE</button>
+          <div class="desktop-brand"><a href="/">BRAD JARVIS</a></div>
+          
+          <nav>
+            <div class="nav-group">
+              <a href="/" ${isHome ? 'class="active"' : ''}>Home</a>
+              <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
+              <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
+            </div>
+            <div class="gallery-group">
+              <div class="nav-section-title" id="gallery-toggle" onclick="toggleGalleryAccordion()">
+                Galleries <span class="arrow">▼</span>
+              </div>
+              <div class="folder-links" id="folder-links">
+                ${sidebarLinksHtml || '<span style="color:#aaa;font-size:11px;">No folders yet</span>'}
+              </div>
+            </div>
+          </nav>
+        </div>
         
-        <nav>
-          <div class="nav-group">
-            <a href="/" ${isHome ? 'class="active"' : ''}>Home</a>
-            <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
-            <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
-          </div>
-          <div class="gallery-group">
-            <div class="nav-section-title" id="gallery-toggle" onclick="toggleGalleryAccordion()">
-              Galleries <span class="arrow">▼</span>
-            </div>
-            <div class="folder-links" id="folder-links">
-              ${sidebarLinksHtml || '<span style="color:#aaa;font-size:11px;">No folders yet</span>'}
-            </div>
-          </div>
-        </nav>
+        <div class="sidebar-bottom">
+          <a href="https://instagram.com/bradjarv.is/" target="_blank" class="social-link" aria-label="Instagram">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+          </a>
+        </div>
       </aside>
       
       <main>${mainContentHtml}</main>
