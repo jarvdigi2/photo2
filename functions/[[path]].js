@@ -198,7 +198,7 @@ export async function onRequest(context) {
       <div class="static-page">
         <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
         <h2>About</h2>
-        <p>Edit this text directly inside your [[path]].js file.</p>
+        <p> </p>
       </div>
     `;
   } else if (isContact) {
