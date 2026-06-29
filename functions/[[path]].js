@@ -1,7 +1,3 @@
-Here is the fully updated functions/[[path]].js file.
-The "MORE COMING SOON" static placeholder has been removed, and the logic to fetch and display the Featured folder on the home page has been fully restored.
-Copy and paste this entire block to replace your current code:
-```javascript
 // --- CONFIGURATION ---
 // Give this password to Brad for the mobile upload portal
 const UPLOAD_PASSWORD = "brad_upload_123";
