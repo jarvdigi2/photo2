@@ -365,7 +365,7 @@ export async function onRequest(context) {
           <nav>
             <div class="nav-group">
               <a href="/" ${isHome ? 'class="active"' : ''}>Portfolio</a>
-              <a href="/contact" ${isContact ? 'class="active"' : ''}>About & Contact</a>
+              <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
             </div>
             <div class="gallery-group">
               <div class="nav-section-title" id="gallery-toggle" onclick="toggleGalleryAccordion()">
