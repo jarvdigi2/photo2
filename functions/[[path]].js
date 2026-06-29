@@ -53,11 +53,10 @@ export async function onRequest(context) {
   }
 
   // 2. PAGE ROUTING LOGIC
-  const isAbout = path.toLowerCase() === 'about';
   const isContact = path.toLowerCase() === 'contact';
   const isUploadPortal = path.toLowerCase() === 'upload-portal';
   const isHome = path === '';
-  const activeFolder = (isAbout || isContact || isHome || isUploadPortal) ? '' : path;
+  const activeFolder = (isContact || isHome || isUploadPortal) ? '' : path;
 
   // 3. GET FOLDERS FOR SIDEBAR & UPLOAD DROPDOWN
   const rootList = await env.PHOTOS_BUCKET.list({ delimiter: '/' });
@@ -197,18 +196,10 @@ export async function onRequest(context) {
         });
       </script>
     `;
-  } else if (isAbout) {
-    mainContentHtml = `
-      <div class="static-page">
-        <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
-        <h2>About</h2>
-        <p> </p>
-      </div>
-    `;
   } else if (isContact) {
     mainContentHtml = `
       <div class="static-page">
-        <img src="/contact.jpg" alt="Contact Brad Jarvis" class="static-image" />
+        <img src="/about.jpg" alt="Brad Jarvis" class="static-image" />
         <h2>Contact</h2>
         <p>Feel free to reach out to me for any inquiries.</p>
         <p><a href="mailto:hello@bradjarv.is">hello@bradjarv.is</a></p>
@@ -229,7 +220,7 @@ export async function onRequest(context) {
     }
   }
 
-  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isAbout ? 'About' : (isContact ? 'Contact' : (isUploadPortal ? 'Upload' : 'Portfolio')));
+  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isContact ? 'About & Contact' : (isUploadPortal ? 'Upload' : 'Portfolio'));
   
   const siteUrl = url.origin; 
   const ogImageUrl = `${siteUrl}/about.jpg`;
@@ -242,13 +233,13 @@ export async function onRequest(context) {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Brad Jarvis | ${pageTitle}</title>
-      <meta property="og:title" content="Brad Jarvis | ${pageTitle}">
+      <meta property="og:title" content="Brad Jarvis • ${pageTitle}">
       <meta property="og:description" content="${pageDescription}">
       <meta property="og:image" content="${ogImageUrl}">
       <meta property="og:url" content="${url.href}">
       <meta property="og:type" content="website">
       <meta name="twitter:card" content="summary_large_image">
-      <meta name="twitter:title" content="Brad Jarvis | ${pageTitle}">
+      <meta name="twitter:title" content="Brad Jarvis • ${pageTitle}">
       <meta name="twitter:description" content="${pageDescription}">
       <meta name="twitter:image" content="${ogImageUrl}">
       <link rel="icon" type="image/png" href="/favicon.png">
@@ -374,8 +365,7 @@ export async function onRequest(context) {
           <nav>
             <div class="nav-group">
               <a href="/" ${isHome ? 'class="active"' : ''}>Portfolio</a>
-              <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
-              <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
+              <a href="/contact" ${isContact ? 'class="active"' : ''}>About & Contact</a>
             </div>
             <div class="gallery-group">
               <div class="nav-section-title" id="gallery-toggle" onclick="toggleGalleryAccordion()">
