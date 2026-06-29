@@ -1,3 +1,7 @@
+Here is the fully updated functions/[[path]].js file.
+The "MORE COMING SOON" static placeholder has been removed, and the logic to fetch and display the Featured folder on the home page has been fully restored.
+Copy and paste this entire block to replace your current code:
+```javascript
 // --- CONFIGURATION ---
 // Give this password to Brad for the mobile upload portal
 const UPLOAD_PASSWORD = "brad_upload_123";
@@ -66,9 +70,13 @@ export async function onRequest(context) {
   // 4. FETCH IMAGES
   let images = [];
   if (isHome) {
-    // TEMPORARILY DISABLED: Not fetching the 'Featured' folder to save bandwidth
-    // while the 'coming soon' holding page is active. 
-    images = []; 
+    const homeFoldersToLoad = ['Featured']; 
+    const folderPromises = homeFoldersToLoad.map(folderName => 
+      env.PHOTOS_BUCKET.list({ prefix: `${folderName}/` })
+    );
+    const folderResults = await Promise.all(folderPromises);
+    const combinedObjects = folderResults.flatMap(result => result.objects || []);
+    images = combinedObjects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
   } else if (activeFolder) {
     const list = await env.PHOTOS_BUCKET.list({ prefix: `${activeFolder}/` });
     images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
@@ -208,14 +216,6 @@ export async function onRequest(context) {
         <h2>Contact</h2>
         <p>Feel free to reach out to me for any inquiries.</p>
         <p><a href="mailto:hello@bradjarv.is">hello@bradjarv.is</a></p>
-      </div>
-    `;
-  } else if (isHome) {
-    // --- TEMPORARY HOLDING PAGE FOR HOME ---
-    mainContentHtml = `
-      <div class="static-page" style="margin: 0 auto; text-align: center;">
-        <img src="/home-placeholder.jpg" alt="Featured Photo" class="static-image" style="margin-bottom: 25px;" />
-        <h2 style="color: #777; letter-spacing: 4px; font-size: 16px;">MORE COMING SOON</h2>
       </div>
     `;
   } else {
@@ -445,3 +445,5 @@ export async function onRequest(context) {
     headers: { "Content-Type": "text/html;charset=UTF-8" }
   });
 }
+
+```
