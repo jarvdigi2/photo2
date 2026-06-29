@@ -229,7 +229,7 @@ export async function onRequest(context) {
     }
   }
 
-  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isAbout ? 'About' : (isContact ? 'Contact' : (isUploadPortal ? 'Upload' : 'Home')));
+  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isAbout ? 'About' : (isContact ? 'Contact' : (isUploadPortal ? 'Upload' : 'Portfolio')));
   
   const siteUrl = url.origin; 
   const ogImageUrl = `${siteUrl}/about.jpg`;
@@ -373,7 +373,7 @@ export async function onRequest(context) {
           
           <nav>
             <div class="nav-group">
-              <a href="/" ${isHome ? 'class="active"' : ''}>Home</a>
+              <a href="/" ${isHome ? 'class="active"' : ''}>Portfolio</a>
               <a href="/about" ${isAbout ? 'class="active"' : ''}>About</a>
               <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
             </div>
