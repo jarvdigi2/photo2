@@ -39,7 +39,7 @@ export async function onRequest(context) {
     }
   }
 
-  // 1. ASSET PASS-THROUGH
+// 1. ASSET PASS-THROUGH
   if (path.match(/\.(jpg|jpeg|png|webp|gif|woff|woff2|ttf|otf|ico)$/i)) {
     const object = await env.PHOTOS_BUCKET.get(path);
     if (!object) {
@@ -47,6 +47,16 @@ export async function onRequest(context) {
     }
     const headers = new Headers();
     object.writeHttpMetadata(headers);
+    
+    // --- NEW FAILSAFE: Force image types for bad R2 metadata ---
+    const currentType = headers.get('Content-Type') || '';
+    if (currentType.includes('application/octet-stream') || currentType === '') {
+      if (path.match(/\.(jpg|jpeg)$/i)) headers.set('Content-Type', 'image/jpeg');
+      else if (path.match(/\.png$/i)) headers.set('Content-Type', 'image/png');
+      else if (path.match(/\.webp$/i)) headers.set('Content-Type', 'image/webp');
+      else if (path.match(/\.gif$/i)) headers.set('Content-Type', 'image/gif');
+    }
+
     headers.set('etag', object.httpEtag);
     headers.set('Cache-Control', 'public, max-age=604800'); 
     return new Response(object.body, { headers });
