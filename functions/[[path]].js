@@ -233,7 +233,7 @@ export async function onRequest(context) {
     }
   }
 
-  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isContact ? 'Contact' : (isUploadPortal ? 'Upload' : 'Portfolio'));
+  const pageTitle = activeFolder ? activeFolder.replace(/_/g, ' ') : (isContact ? 'Contact' : (isUploadPortal ? 'Upload' : 'Featured Portfolio'));
   
   const siteUrl = url.origin; 
   const ogImageUrl = `${siteUrl}/about.jpg`;
