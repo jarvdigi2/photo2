@@ -39,7 +39,7 @@ export async function onRequest(context) {
     }
   }
 
-// 1. ASSET PASS-THROUGH
+  // 1. ASSET PASS-THROUGH
   if (path.match(/\.(jpg|jpeg|png|webp|gif|woff|woff2|ttf|otf|ico)$/i)) {
     const object = await env.PHOTOS_BUCKET.get(path);
     if (!object) {
@@ -48,7 +48,7 @@ export async function onRequest(context) {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     
-    // --- NEW FAILSAFE: Force image types for bad R2 metadata ---
+    // FAILSAFE: Force image types for bad R2 S3 S3 metadata uploads
     const currentType = headers.get('Content-Type') || '';
     if (currentType.includes('application/octet-stream') || currentType === '') {
       if (path.match(/\.(jpg|jpeg)$/i)) headers.set('Content-Type', 'image/jpeg');
@@ -81,10 +81,12 @@ export async function onRequest(context) {
     );
     const folderResults = await Promise.all(folderPromises);
     const combinedObjects = folderResults.flatMap(result => result.objects || []);
-    images = combinedObjects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+    // Ignore hidden Mac files starting with a dot
+    images = combinedObjects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i) && !obj.key.split('/').pop().startsWith('.'));
   } else if (activeFolder) {
     const list = await env.PHOTOS_BUCKET.list({ prefix: `${activeFolder}/` });
-    images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+    // Ignore hidden Mac files starting with a dot
+    images = list.objects.filter(obj => obj.key.match(/\.(jpg|jpeg|png|webp|gif)$/i) && !obj.key.split('/').pop().startsWith('.'));
   }
 
   images.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: 'base' }));
@@ -219,11 +221,11 @@ export async function onRequest(context) {
     if (images.length === 0) {
       mainContentHtml = `<p style="color:#777; font-family: sans-serif;">No photos found here yet.</p>`;
     } else {
-      // NOTE: We now pass the index of the image rather than the raw string URL
+      // NOTE: Added IDs and the onerror fallback to silently hide broken images
       const photoGridHtml = images.map((img, index) => {
         return `
-          <div class="grid-item" onclick="openLightbox(${index})">
-            <img src="/${encodeURIComponent(img.key)}" alt="Gallery photo" loading="lazy" />
+          <div class="grid-item" id="grid-item-${index}" onclick="openLightbox(${index})">
+            <img src="/${encodeURIComponent(img.key)}" alt="Gallery photo" loading="lazy" onerror="hideBrokenImage(${index})" />
           </div>
         `;
       }).join('\n');
@@ -269,7 +271,6 @@ export async function onRequest(context) {
         .mobile-overlay { display: none; }
         .close-menu-btn { display: none; }
 
-        /* Sidebar set to flex to push social icon to the bottom */
         aside { 
           position: fixed; left: 0; top: 0; bottom: 0; width: 280px; padding: 50px 40px; 
           overflow-y: auto; z-index: 1000; background: #fff; 
@@ -279,7 +280,6 @@ export async function onRequest(context) {
         .sidebar-top { flex-grow: 1; }
         .sidebar-bottom { margin-top: 40px; }
 
-        /* Social Icon Styling */
         .social-link { display: inline-block; color: #111; transition: opacity 0.2s ease; }
         .social-link:hover { opacity: 0.6; }
         .social-link svg { width: 20px; height: 20px; }
@@ -313,10 +313,7 @@ export async function onRequest(context) {
         
         @media (max-width: 768px) {
           body { flex-direction: column; }
-		  .grid-item { cursor: default; }
-          /* Disable tap highlights and stuck hover states on mobile */
-          .grid-item { -webkit-tap-highlight-color: transparent; cursor: default; }
-          .grid-item:hover img { opacity: 1; }
+          
           .mobile-header { 
             display: flex; align-items: center; justify-content: center;
             position: fixed; top: 0; left: 0; width: 100%; height: 60px;
@@ -352,9 +349,19 @@ export async function onRequest(context) {
           .nav-section-title.open .arrow { transform: rotate(180deg); }
           .folder-links { display: none; padding: 15px 0 0 5px; }
           .folder-links.open { display: flex; }
+
+          /* Disable tap highlights and stuck hover states on mobile */
+          .grid-item { -webkit-tap-highlight-color: transparent; cursor: default; }
+          .grid-item:hover img { opacity: 1; }
         }
 
-        #lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.95); justify-content: center; align-items: center; padding: 40px; opacity: 0; transition: opacity 0.3s ease; }
+        /* LIGHTBOX CSS UPDATES FOR MOBILE STABILITY */
+        #lightbox { 
+          display: none; position: fixed; z-index: 9999; 
+          top: 0; left: 0; right: 0; bottom: 0; 
+          background: rgba(255,255,255,0.95); justify-content: center; align-items: center; 
+          padding: 40px; opacity: 0; transition: opacity 0.3s ease; touch-action: none; 
+        }
         #lightbox.visible { opacity: 1; }
         #lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
         #lightbox-close { position: absolute; top: 30px; right: 40px; color: #000; font-size: 40px; cursor: pointer; user-select: none; font-family: sans-serif; }
@@ -378,7 +385,7 @@ export async function onRequest(context) {
           
           <nav>
             <div class="nav-group">
-              <a href="/" ${isHome ? 'class="active"' : ''}>Featured Portfolio</a>
+              <a href="/" ${isHome ? 'class="active"' : ''}>Portfolio</a>
               <a href="/contact" ${isContact ? 'class="active"' : ''}>Contact</a>
             </div>
             <div class="gallery-group">
@@ -407,13 +414,37 @@ export async function onRequest(context) {
       
       <div id="lightbox" onclick="closeLightbox()">
         <span id="lightbox-close">&times;</span>
-        <img id="lightbox-img" src="" alt="Expanded View" />
+        <img id="lightbox-img" src="" alt="Expanded View" onerror="handleLightboxError()" />
       </div>
       
       <script>
-        // Inject the array of current page images directly into JavaScript
         const galleryImages = ${JSON.stringify(images.map(img => `/${encodeURIComponent(img.key)}`))};
         let currentLightboxIndex = -1;
+        
+        // Track images that the browser fails to render
+        const brokenImages = new Set();
+
+        // Triggered by the <img> tags in the grid if they fail to load
+        function hideBrokenImage(index) {
+          const el = document.getElementById('grid-item-' + index);
+          if (el) el.style.display = 'none'; // Erase it from the layout
+          brokenImages.add(index);           // Remember that it's broken
+        }
+
+        // Triggered if the lightbox tries to open a broken image
+        function handleLightboxError() {
+          if (currentLightboxIndex === -1) return;
+          hideBrokenImage(currentLightboxIndex); 
+          
+          // If EVERY photo in the gallery is broken, just close the lightbox
+          if (brokenImages.size >= galleryImages.length) {
+            closeLightbox();
+            return;
+          }
+          
+          // Otherwise, silently skip to the next available working image
+          cycleLightbox(1);
+        }
 
         function toggleMobileNav() {
           const sidebar = document.getElementById('main-sidebar');
@@ -429,8 +460,7 @@ export async function onRequest(context) {
           }
         }
         
-		function openLightbox(index) {
-          // Break out of the function on mobile screens
+        function openLightbox(index) {
           if (window.innerWidth <= 768) return; 
 
           currentLightboxIndex = index;
@@ -446,27 +476,37 @@ export async function onRequest(context) {
         function closeLightbox() {
           const lightbox = document.getElementById('lightbox');
           lightbox.classList.remove('visible');
+          
+          document.body.style.overflow = ''; 
+
           setTimeout(() => { 
             lightbox.style.display = 'none';
             currentLightboxIndex = -1; 
           }, 300);
         }
 
-        // --- KEYBOARD NAVIGATION LOGIC ---
+        // Logic to cycle images while skipping any known broken ones
+        function cycleLightbox(direction) {
+          if (brokenImages.size >= galleryImages.length) return;
+          
+          let nextIndex = currentLightboxIndex;
+          do {
+            nextIndex = (nextIndex + direction + galleryImages.length) % galleryImages.length;
+          } while (brokenImages.has(nextIndex));
+          
+          currentLightboxIndex = nextIndex;
+          document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
+        }
+
         document.addEventListener('keydown', function(e) {
-          // If the lightbox isn't actively open, ignore the keystroke
           if (currentLightboxIndex === -1) return; 
 
           if (e.key === 'Escape') {
             closeLightbox();
           } else if (e.key === 'ArrowRight') {
-            // Cycle forward, looping back to 0 if at the end
-            currentLightboxIndex = (currentLightboxIndex + 1) % galleryImages.length;
-            document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
+            cycleLightbox(1);
           } else if (e.key === 'ArrowLeft') {
-            // Cycle backward, looping to the end if at 0
-            currentLightboxIndex = (currentLightboxIndex - 1 + galleryImages.length) % galleryImages.length;
-            document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
+            cycleLightbox(-1);
           }
         });
       </script>
