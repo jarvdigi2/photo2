@@ -48,7 +48,7 @@ export async function onRequest(context) {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     
-    // FAILSAFE: Force image types for bad R2 metadata uploads
+    // FAILSAFE: Force image types for bad R2 S3 S3 metadata uploads
     const currentType = headers.get('Content-Type') || '';
     if (currentType.includes('application/octet-stream') || currentType === '') {
       if (path.match(/\.(jpg|jpeg)$/i)) headers.set('Content-Type', 'image/jpeg');
@@ -105,7 +105,6 @@ export async function onRequest(context) {
 
   // 6. RENDER MAIN CONTENT AREA
   let mainContentHtml = '';
-  let itemsArrayJsString = '[]';
 
   if (isUploadPortal) {
     mainContentHtml = `
@@ -222,32 +221,15 @@ export async function onRequest(context) {
     if (images.length === 0) {
       mainContentHtml = `<p style="color:#777; font-family: sans-serif;">No photos found here yet.</p>`;
     } else {
-      // PRE-RENDER THE ITEMS FOR THE JS MASONRY ENGINE
-      const itemsArray = images.map((img, index) => {
+      // NOTE: Added IDs and the onerror fallback to silently hide broken images
+      const photoGridHtml = images.map((img, index) => {
         return `
           <div class="grid-item" id="grid-item-${index}" onclick="openLightbox(${index})">
             <img src="/${encodeURIComponent(img.key)}" alt="Gallery photo" loading="lazy" onerror="hideBrokenImage(${index})" />
           </div>
         `;
-      });
-      
-      itemsArrayJsString = JSON.stringify(itemsArray);
-
-      // Pre-build 3 columns for desktop default load to avoid visual flashing
-      let col1 = '', col2 = '', col3 = '';
-      itemsArray.forEach((html, index) => {
-        if (index % 3 === 0) col1 += html;
-        else if (index % 3 === 1) col2 += html;
-        else col3 += html;
-      });
-
-      mainContentHtml = `
-        <div class="masonry-grid" id="masonry-grid">
-          <div class="masonry-column">${col1}</div>
-          <div class="masonry-column">${col2}</div>
-          <div class="masonry-column">${col3}</div>
-        </div>
-      `;
+      }).join('\n');
+      mainContentHtml = `<div class="photo-grid">${photoGridHtml}</div>`;
     }
   }
 
@@ -316,11 +298,8 @@ export async function onRequest(context) {
         .folder-link { text-transform: capitalize; letter-spacing: 1px; }
 
         main { margin-left: 280px; flex-grow: 1; padding: 50px 40px; min-height: 100vh; }
-        
-        /* NEW FLEX-BASED MASONRY CSS */
-        .masonry-grid { display: flex; gap: 20px; width: 100%; align-items: flex-start; }
-        .masonry-column { display: flex; flex-direction: column; gap: 20px; flex: 1; width: 100%; }
-        .grid-item { cursor: pointer; position: relative; width: 100%; }
+        .photo-grid { column-count: 3; column-gap: 20px; }
+        .grid-item { break-inside: avoid; margin-bottom: 20px; cursor: pointer; position: relative; }
         .grid-item img { width: 100%; height: auto; display: block; transition: opacity 0.3s ease; }
         .grid-item:hover img { opacity: 0.85; }
 
@@ -329,6 +308,8 @@ export async function onRequest(context) {
         .static-page p { margin-bottom: 15px; color: #444; }
         .static-page a { color: #000; font-weight: 500; }
         .static-image { width: 100%; max-height: 600px; object-fit: cover; margin-bottom: 40px; display: block; }
+
+        @media (max-width: 1200px) { .photo-grid { column-count: 2; } }
         
         @media (max-width: 768px) {
           body { flex-direction: column; }
@@ -359,6 +340,7 @@ export async function onRequest(context) {
           .mobile-overlay.open { display: block; opacity: 1; }
 
           main { margin-left: 0; padding: 80px 15px 30px; } 
+          .photo-grid { column-count: 1; }
           
           aside nav { margin-top: 30px; gap: 20px; }
           .nav-group { flex-direction: column; gap: 15px; }
@@ -368,10 +350,12 @@ export async function onRequest(context) {
           .folder-links { display: none; padding: 15px 0 0 5px; }
           .folder-links.open { display: flex; }
 
+          /* Disable tap highlights and stuck hover states on mobile */
           .grid-item { -webkit-tap-highlight-color: transparent; cursor: default; }
           .grid-item:hover img { opacity: 1; }
         }
 
+        /* LIGHTBOX CSS UPDATES FOR MOBILE STABILITY */
         #lightbox { 
           display: none; position: fixed; z-index: 9999; 
           top: 0; left: 0; right: 0; bottom: 0; 
@@ -435,67 +419,33 @@ export async function onRequest(context) {
       
       <script>
         const galleryImages = ${JSON.stringify(images.map(img => `/${encodeURIComponent(img.key)}`))};
-        const masonryItemsHtml = ${itemsArrayJsString};
         let currentLightboxIndex = -1;
-        let currentCols = 3; 
         
+        // Track images that the browser fails to render
         const brokenImages = new Set();
 
-        // --- NEW JAVASCRIPT MASONRY ENGINE ---
-        function renderMasonryGrid() {
-          const grid = document.getElementById('masonry-grid');
-          if (!grid || masonryItemsHtml.length === 0) return;
-
-          let targetCols = 3;
-          if (window.innerWidth <= 1200) targetCols = 2;
-          if (window.innerWidth <= 768) targetCols = 1;
-
-          // Don't rebuild if the column count hasn't changed
-          if (currentCols === targetCols) return; 
-          currentCols = targetCols;
-
-          // Deal the photo HTML out like a deck of cards
-          const colHtml = Array(targetCols).fill('');
-          masonryItemsHtml.forEach((html, index) => {
-             colHtml[index % targetCols] += html;
-          });
-
-          grid.innerHTML = colHtml.map(html => \`<div class="masonry-column">\${html}</div>\`).join('');
-          
-          // Re-hide any previously discovered broken HEIC files
-          brokenImages.forEach(index => {
-            const el = document.getElementById('grid-item-' + index);
-            if (el) el.style.display = 'none';
-          });
-        }
-
-        // Run instantly to fix layout on tablets/phones
-        renderMasonryGrid();
-        
-        window.addEventListener('resize', () => {
-          clearTimeout(window.masonryResizeTimer);
-          window.masonryResizeTimer = setTimeout(renderMasonryGrid, 100);
-        });
-
-        // --- ERROR HANDLING ---
+        // Triggered by the <img> tags in the grid if they fail to load
         function hideBrokenImage(index) {
           const el = document.getElementById('grid-item-' + index);
-          if (el) el.style.display = 'none'; 
-          brokenImages.add(index);           
+          if (el) el.style.display = 'none'; // Erase it from the layout
+          brokenImages.add(index);           // Remember that it's broken
         }
 
+        // Triggered if the lightbox tries to open a broken image
         function handleLightboxError() {
           if (currentLightboxIndex === -1) return;
           hideBrokenImage(currentLightboxIndex); 
           
+          // If EVERY photo in the gallery is broken, just close the lightbox
           if (brokenImages.size >= galleryImages.length) {
             closeLightbox();
             return;
           }
+          
+          // Otherwise, silently skip to the next available working image
           cycleLightbox(1);
         }
 
-        // --- NAVIGATION UI ---
         function toggleMobileNav() {
           const sidebar = document.getElementById('main-sidebar');
           const overlay = document.getElementById('mobile-overlay');
@@ -510,7 +460,6 @@ export async function onRequest(context) {
           }
         }
         
-        // --- LIGHTBOX ---
         function openLightbox(index) {
           if (window.innerWidth <= 768) return; 
 
@@ -536,6 +485,7 @@ export async function onRequest(context) {
           }, 300);
         }
 
+        // Logic to cycle images while skipping any known broken ones
         function cycleLightbox(direction) {
           if (brokenImages.size >= galleryImages.length) return;
           
