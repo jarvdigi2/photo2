@@ -209,9 +209,10 @@ export async function onRequest(context) {
     if (images.length === 0) {
       mainContentHtml = `<p style="color:#777; font-family: sans-serif;">No photos found here yet.</p>`;
     } else {
-      const photoGridHtml = images.map(img => {
+      // NOTE: We now pass the index of the image rather than the raw string URL
+      const photoGridHtml = images.map((img, index) => {
         return `
-          <div class="grid-item" onclick="openLightbox('/${encodeURIComponent(img.key)}')">
+          <div class="grid-item" onclick="openLightbox(${index})">
             <img src="/${encodeURIComponent(img.key)}" alt="Gallery photo" loading="lazy" />
           </div>
         `;
@@ -397,6 +398,10 @@ export async function onRequest(context) {
       </div>
       
       <script>
+        // Inject the array of current page images directly into JavaScript
+        const galleryImages = ${JSON.stringify(images.map(img => `/${encodeURIComponent(img.key)}`))};
+        let currentLightboxIndex = -1;
+
         function toggleMobileNav() {
           const sidebar = document.getElementById('main-sidebar');
           const overlay = document.getElementById('mobile-overlay');
@@ -411,17 +416,40 @@ export async function onRequest(context) {
           }
         }
         
-        function openLightbox(src) {
+        function openLightbox(index) {
+          currentLightboxIndex = index;
           const lightbox = document.getElementById('lightbox');
-          document.getElementById('lightbox-img').src = src;
+          document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
           lightbox.style.display = 'flex';
           setTimeout(() => lightbox.classList.add('visible'), 10);
         }
+
         function closeLightbox() {
           const lightbox = document.getElementById('lightbox');
           lightbox.classList.remove('visible');
-          setTimeout(() => lightbox.style.display = 'none', 300);
+          setTimeout(() => { 
+            lightbox.style.display = 'none';
+            currentLightboxIndex = -1; 
+          }, 300);
         }
+
+        // --- KEYBOARD NAVIGATION LOGIC ---
+        document.addEventListener('keydown', function(e) {
+          // If the lightbox isn't actively open, ignore the keystroke
+          if (currentLightboxIndex === -1) return; 
+
+          if (e.key === 'Escape') {
+            closeLightbox();
+          } else if (e.key === 'ArrowRight') {
+            // Cycle forward, looping back to 0 if at the end
+            currentLightboxIndex = (currentLightboxIndex + 1) % galleryImages.length;
+            document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
+          } else if (e.key === 'ArrowLeft') {
+            // Cycle backward, looping to the end if at 0
+            currentLightboxIndex = (currentLightboxIndex - 1 + galleryImages.length) % galleryImages.length;
+            document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
+          }
+        });
       </script>
     </body>
     </html>
