@@ -304,7 +304,9 @@ export async function onRequest(context) {
         @media (max-width: 768px) {
           body { flex-direction: column; }
 		  .grid-item { cursor: default; }
-          
+          /* Disable tap highlights and stuck hover states on mobile */
+          .grid-item { -webkit-tap-highlight-color: transparent; cursor: default; }
+          .grid-item:hover img { opacity: 1; }
           .mobile-header { 
             display: flex; align-items: center; justify-content: center;
             position: fixed; top: 0; left: 0; width: 100%; height: 60px;
