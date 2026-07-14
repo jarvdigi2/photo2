@@ -209,6 +209,7 @@ export async function onRequest(context) {
     if (images.length === 0) {
       mainContentHtml = `<p style="color:#777; font-family: sans-serif;">No photos found here yet.</p>`;
     } else {
+      // NOTE: We now pass the index of the image rather than the raw string URL
       const photoGridHtml = images.map((img, index) => {
         return `
           <div class="grid-item" onclick="openLightbox(${index})">
@@ -258,6 +259,7 @@ export async function onRequest(context) {
         .mobile-overlay { display: none; }
         .close-menu-btn { display: none; }
 
+        /* Sidebar set to flex to push social icon to the bottom */
         aside { 
           position: fixed; left: 0; top: 0; bottom: 0; width: 280px; padding: 50px 40px; 
           overflow-y: auto; z-index: 1000; background: #fff; 
@@ -267,6 +269,7 @@ export async function onRequest(context) {
         .sidebar-top { flex-grow: 1; }
         .sidebar-bottom { margin-top: 40px; }
 
+        /* Social Icon Styling */
         .social-link { display: inline-block; color: #111; transition: opacity 0.2s ease; }
         .social-link:hover { opacity: 0.6; }
         .social-link svg { width: 20px; height: 20px; }
@@ -300,6 +303,7 @@ export async function onRequest(context) {
         
         @media (max-width: 768px) {
           body { flex-direction: column; }
+		  .grid-item { cursor: default; }
           
           .mobile-header { 
             display: flex; align-items: center; justify-content: center;
@@ -338,13 +342,7 @@ export async function onRequest(context) {
           .folder-links.open { display: flex; }
         }
 
-        /* LIGHTBOX CSS UPDATES FOR MOBILE STABILITY */
-        #lightbox { 
-          display: none; position: fixed; z-index: 9999; 
-          top: 0; left: 0; right: 0; bottom: 0; /* Replaces 100vh/100vw for iOS bug */
-          background: rgba(255,255,255,0.95); justify-content: center; align-items: center; 
-          padding: 40px; opacity: 0; transition: opacity 0.3s ease; touch-action: none; 
-        }
+        #lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.95); justify-content: center; align-items: center; padding: 40px; opacity: 0; transition: opacity 0.3s ease; }
         #lightbox.visible { opacity: 1; }
         #lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
         #lightbox-close { position: absolute; top: 30px; right: 40px; color: #000; font-size: 40px; cursor: pointer; user-select: none; font-family: sans-serif; }
@@ -401,6 +399,7 @@ export async function onRequest(context) {
       </div>
       
       <script>
+        // Inject the array of current page images directly into JavaScript
         const galleryImages = ${JSON.stringify(images.map(img => `/${encodeURIComponent(img.key)}`))};
         let currentLightboxIndex = -1;
 
@@ -418,13 +417,16 @@ export async function onRequest(context) {
           }
         }
         
-        function openLightbox(index) {
+		function openLightbox(index) {
+          // Break out of the function on mobile screens
+          if (window.innerWidth <= 768) return; 
+
           currentLightboxIndex = index;
           const lightbox = document.getElementById('lightbox');
           document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
           
           lightbox.style.display = 'flex';
-          document.body.style.overflow = 'hidden'; // Freezes the background scroll
+          document.body.style.overflow = 'hidden'; 
 
           setTimeout(() => lightbox.classList.add('visible'), 10);
         }
@@ -432,24 +434,25 @@ export async function onRequest(context) {
         function closeLightbox() {
           const lightbox = document.getElementById('lightbox');
           lightbox.classList.remove('visible');
-          
-          document.body.style.overflow = ''; // Unfreezes the background scroll
-
           setTimeout(() => { 
             lightbox.style.display = 'none';
             currentLightboxIndex = -1; 
           }, 300);
         }
 
+        // --- KEYBOARD NAVIGATION LOGIC ---
         document.addEventListener('keydown', function(e) {
+          // If the lightbox isn't actively open, ignore the keystroke
           if (currentLightboxIndex === -1) return; 
 
           if (e.key === 'Escape') {
             closeLightbox();
           } else if (e.key === 'ArrowRight') {
+            // Cycle forward, looping back to 0 if at the end
             currentLightboxIndex = (currentLightboxIndex + 1) % galleryImages.length;
             document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
           } else if (e.key === 'ArrowLeft') {
+            // Cycle backward, looping to the end if at 0
             currentLightboxIndex = (currentLightboxIndex - 1 + galleryImages.length) % galleryImages.length;
             document.getElementById('lightbox-img').src = galleryImages[currentLightboxIndex];
           }
